@@ -655,13 +655,34 @@ function extractLandmarks(results, isFront) {
 // Canvas NÃO tem CSS flip. Espelhamos x manualmente para câmera frontal
 // (onde o video tem scaleX(-1)), de modo que o esqueleto fique sobre a mão.
 
+// Calcula o offset e escala causados pelo object-fit: cover.
+// O MediaPipe processa o frame completo (videoWidth x videoHeight),
+// mas o canvas cobre a área visível (que pode estar cropada/escalada).
+function getCoverTransform() {
+  const vw = video.videoWidth  || video.clientWidth;
+  const vh = video.videoHeight || video.clientHeight;
+  const cw = canvas.width;
+  const ch = canvas.height;
+  const scale   = Math.max(cw / vw, ch / vh);
+  const scaledW = vw * scale;
+  const scaledH = vh * scale;
+  const offX    = (cw - scaledW) / 2;
+  const offY    = (ch - scaledH) / 2;
+  return { scaledW, scaledH, offX, offY };
+}
+
 function drawHands(results, isFront) {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
   if (!results.landmarks) return;
 
-  const cx = (lm) => (isFront ? (1 - lm.x) : lm.x) * W;
-  const cy = (lm) => lm.y * H;
+  const { scaledW, scaledH, offX, offY } = getCoverTransform();
+
+  // Mapeia coordenadas normalizadas [0,1] do frame completo
+  // para a posição real no canvas (levando em conta o crop do object-fit: cover
+  // e o espelho da câmera frontal).
+  const cx = (lm) => (isFront ? (1 - lm.x) : lm.x) * scaledW + offX;
+  const cy = (lm) => lm.y * scaledH + offY;
 
   results.landmarks.forEach((lms, hi) => {
     const baseColor = hi === 0 ? '#5b7fff' : '#a78bfa';
