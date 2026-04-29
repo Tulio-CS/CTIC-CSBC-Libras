@@ -3,250 +3,326 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#08090a" />
   <title>LIBRAS ao Vivo</title>
-
-  <!-- MediaPipe Tasks Vision carregado como ES module no <script> abaixo -->
-
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
-    /* ── Reset & base ──────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #0f172a;
-      --card:      #1e293b;
-      --border:    #334155;
-      --green:     #22c55e;
-      --yellow:    #eab308;
-      --red:       #ef4444;
-      --blue:      #3b82f6;
-      --text:      #f1f5f9;
-      --muted:     #94a3b8;
-      --radius:    14px;
+      --bg:       #08090a;
+      --surface:  #111318;
+      --surface2: #1a1d24;
+      --border:   #252830;
+      --border2:  #2e3240;
+      --accent:   #5b7fff;
+      --accent2:  #3d5ce8;
+      --green:    #22c97a;
+      --yellow:   #f5c542;
+      --red:      #f24444;
+      --text:     #f0f2f8;
+      --muted:    #6b7280;
+      --muted2:   #9ca3af;
+      --r:        12px;
+      --r2:       8px;
     }
 
     html, body {
       height: 100%;
       background: var(--bg);
       color: var(--text);
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
       overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Layout ─────────────────────────────────────────────────────── */
+    /* ── Layout ──────────────────────────────────────────────────────── */
     #app {
       display: flex;
       flex-direction: column;
-      height: 100dvh;        /* dynamic viewport height (safe on iOS) */
-      gap: 0;
+      height: 100dvh;
     }
 
-    /* ── Header ─────────────────────────────────────────────────────── */
+    /* ── Header ──────────────────────────────────────────────────────── */
     #header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 16px;
-      background: var(--card);
+      padding: 12px 18px;
+      background: var(--surface);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
       z-index: 10;
     }
 
+    #header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #logo-mark {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #logo-mark svg { width: 16px; height: 16px; fill: #fff; }
+
     #header h1 {
-      font-size: 1rem;
+      font-size: .95rem;
       font-weight: 700;
-      letter-spacing: .03em;
+      letter-spacing: -.01em;
+      color: var(--text);
     }
 
-    #status-dot {
-      width: 10px; height: 10px;
+    #header h1 span {
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* Connection pill */
+    #conn-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--muted2);
+      transition: color .3s, border-color .3s;
+    }
+
+    #conn-pill.connected   { color: var(--green); border-color: #22c97a40; }
+    #conn-pill.connecting  { color: var(--yellow); border-color: #f5c54240; }
+    #conn-pill.disconnected{ color: var(--red);    border-color: #f2444440; }
+
+    #conn-dot {
+      width: 6px; height: 6px;
       border-radius: 50%;
-      background: var(--red);
-      transition: background .3s;
-    }
-    #status-dot.connected  { background: var(--green); }
-    #status-dot.connecting { background: var(--yellow); animation: pulse 1s infinite; }
-
-    @keyframes pulse {
-      0%,100% { opacity: 1; } 50% { opacity: .3; }
+      background: currentColor;
     }
 
-    /* ── Camera wrapper ─────────────────────────────────────────────── */
+    #conn-pill.connecting #conn-dot { animation: blink 1s infinite; }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.2; } }
+
+    /* ── Camera ──────────────────────────────────────────────────────── */
     #camera-wrap {
       position: relative;
       flex: 1;
       background: #000;
       overflow: hidden;
+      min-height: 0;
     }
 
     #video {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
       object-fit: cover;
-      transform: scaleX(-1);   /* espelho — modo selfie */
+      transform: scaleX(-1);
     }
 
+    /* Canvas NOT css-flipped — we handle x manually in drawHands */
     #canvas {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
-      transform: scaleX(-1);   /* espelho — igual ao video */
       pointer-events: none;
     }
 
-    /* Buffer fill bar (canto superior esquerdo do vídeo) */
-    #buffer-bar-wrap {
+    /* Buffer progress — thin line at very top of camera */
+    #buffer-track {
       position: absolute;
-      top: 10px; left: 10px;
-      width: 100px;
-      background: rgba(0,0,0,.5);
-      border-radius: 6px;
-      overflow: hidden;
-      height: 5px;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: transparent;
+      z-index: 5;
     }
-    #buffer-bar {
+    #buffer-fill {
       height: 100%;
-      background: var(--blue);
       width: 0%;
-      transition: width .1s;
+      background: var(--accent);
+      transition: width .08s linear;
+      box-shadow: 0 0 8px var(--accent);
     }
 
-    /* Hands detected indicator */
+    /* Hands badge */
     #hands-badge {
       position: absolute;
-      top: 10px; right: 10px;
-      background: rgba(0,0,0,.6);
-      border-radius: 8px;
-      padding: 4px 10px;
-      font-size: .7rem;
+      top: 12px; right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      background: rgba(8,9,10,.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 600;
       color: var(--muted);
-      transition: color .2s;
+      transition: color .2s, border-color .2s;
     }
-    #hands-badge.detected { color: var(--green); }
+    #hands-badge.detected { color: var(--green); border-color: #22c97a40; }
 
-    /* ── Prediction panel ───────────────────────────────────────────── */
+    #hands-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* ── Prediction panel ────────────────────────────────────────────── */
     #pred-panel {
-      background: var(--card);
+      background: var(--surface);
       border-top: 1px solid var(--border);
-      padding: 12px 16px 16px;
+      padding: 14px 18px 18px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
     }
 
-    /* Main prediction */
+    /* Main row: big label + confidence */
     #pred-main {
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       justify-content: space-between;
-      gap: 8px;
+      gap: 12px;
     }
 
     #pred-label {
-      font-size: 2.4rem;
-      font-weight: 800;
-      letter-spacing: .02em;
+      font-size: 2.6rem;
+      font-weight: 900;
+      letter-spacing: -.04em;
+      line-height: 1;
       color: var(--green);
+      transition: color .2s;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      transition: color .25s;
     }
-    #pred-label.uncertain { color: var(--muted); }
+    #pred-label.uncertain { color: var(--border2); }
+    #pred-label.low       { color: var(--yellow); }
 
-    #pred-conf-wrap {
+    #conf-group {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 4px;
+      gap: 5px;
       flex-shrink: 0;
+      padding-bottom: 4px;
     }
     #pred-conf-pct {
-      font-size: .85rem;
+      font-size: .78rem;
       font-weight: 700;
-      color: var(--muted);
+      color: var(--muted2);
+      font-variant-numeric: tabular-nums;
     }
-    #conf-bar-bg {
-      width: 80px; height: 6px;
+    #conf-track {
+      width: 72px;
+      height: 4px;
       background: var(--border);
-      border-radius: 3px;
+      border-radius: 2px;
       overflow: hidden;
     }
     #conf-bar {
       height: 100%;
-      background: var(--green);
       width: 0%;
-      transition: width .2s, background .2s;
-      border-radius: 3px;
+      border-radius: 2px;
+      background: var(--green);
+      transition: width .18s, background .18s;
     }
 
-    /* Top-3 */
+    /* ── Divider ─────────────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      border-radius: 1px;
+    }
+
+    /* ── Top-3 ───────────────────────────────────────────────────────── */
     #top3 {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 6px;
     }
 
-    .top3-row {
+    .t3-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
-    .top3-label {
-      width: 80px;
-      font-size: .78rem;
+    .t3-name {
+      width: 90px;
+      font-size: .75rem;
       font-weight: 600;
-      color: var(--text);
+      color: var(--muted2);
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
     }
-    .top3-bar-bg {
+    .t3-track {
       flex: 1;
-      height: 5px;
+      height: 4px;
       background: var(--border);
-      border-radius: 3px;
+      border-radius: 2px;
       overflow: hidden;
     }
-    .top3-bar {
+    .t3-bar {
       height: 100%;
-      background: var(--blue);
-      border-radius: 3px;
-      transition: width .2s;
+      border-radius: 2px;
+      background: var(--accent);
+      transition: width .18s;
     }
-    .top3-pct {
-      font-size: .7rem;
+    .t3-pct {
+      width: 38px;
+      font-size: .72rem;
+      font-weight: 600;
       color: var(--muted);
-      width: 36px;
       text-align: right;
+      font-variant-numeric: tabular-nums;
     }
 
-    /* ── Controls ───────────────────────────────────────────────────── */
+    /* ── Controls ────────────────────────────────────────────────────── */
     #controls {
       display: flex;
       gap: 8px;
-      flex-shrink: 0;
     }
 
     button {
       flex: 1;
-      padding: 10px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-      font-size: .85rem;
+      padding: 11px 14px;
+      border-radius: var(--r);
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--muted2);
+      font-family: inherit;
+      font-size: .8rem;
       font-weight: 600;
       cursor: pointer;
-      transition: background .2s;
+      transition: background .15s, color .15s, border-color .15s;
       -webkit-tap-highlight-color: transparent;
+      letter-spacing: -.01em;
     }
-    button:active { background: var(--border); }
-    button.primary { background: var(--blue); border-color: var(--blue); }
+    button:active { background: var(--border); color: var(--text); }
 
-    /* ── Loading overlay ────────────────────────────────────────────── */
+    button.primary {
+      background: var(--accent2);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:active { background: var(--accent); }
+
+    /* ── Loading overlay ─────────────────────────────────────────────── */
     #loading {
       position: fixed; inset: 0;
       background: var(--bg);
@@ -254,102 +330,136 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 20px;
       z-index: 100;
+      transition: opacity .4s;
     }
-    #loading.hidden { display: none; }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+
+    #loading-logo {
+      width: 52px; height: 52px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #loading-logo svg { width: 28px; height: 28px; fill: var(--accent); }
 
     .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid var(--border);
-      border-top-color: var(--blue);
+      width: 28px; height: 28px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
       border-radius: 50%;
-      animation: spin .8s linear infinite;
+      animation: spin .75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    #loading-msg { color: var(--muted); font-size: .9rem; text-align: center; }
-
-    /* ── Toast ──────────────────────────────────────────────────────── */
-    #toast {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-      background: #1e293bee; border: 1px solid var(--border);
-      color: var(--text); padding: 8px 18px;
-      border-radius: 999px; font-size: .82rem;
-      opacity: 0; transition: opacity .3s;
-      pointer-events: none; white-space: nowrap; z-index: 200;
+    #loading-msg {
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 500;
+      text-align: center;
+      max-width: 220px;
+      line-height: 1.5;
     }
-    #toast.show { opacity: 1; }
+
+    /* ── Toast ───────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--muted2);
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity .25s, transform .25s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 200;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   </style>
 </head>
 <body>
 
-<!-- Loading overlay -->
 <div id="loading">
+  <div id="loading-logo">
+    <svg viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v1H3a1 1 0 0 0 0 2h1v2H3a1 1 0 0 0 0 2h1v2H3a1 1 0 0 0 0 2h1v1a2 2 0 0 0 2 2h1v1a1 1 0 0 0 2 0v-1h2v1a1 1 0 0 0 2 0v-1h1a2 2 0 0 0 2-2v-1h1a1 1 0 0 0 0-2h-1v-2h1a1 1 0 0 0 0-2h-1V7h1a1 1 0 0 0 0-2h-1V4a2 2 0 0 0-2-2H6zm0 2h12v12H6V4zm2 2v8h8V6H8zm2 2h4v4h-4V8z"/></svg>
+  </div>
   <div class="spinner"></div>
   <div id="loading-msg">Carregando MediaPipe…</div>
 </div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
 <div id="app">
 
-  <!-- Header -->
   <div id="header">
-    <h1>🤟 LIBRAS ao Vivo</h1>
-    <div style="display:flex; align-items:center; gap:8px;">
-      <span id="status-label" style="font-size:.75rem; color:var(--muted)">Conectando…</span>
-      <div id="status-dot" class="connecting"></div>
+    <div id="header-left">
+      <div id="logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M8 3a1 1 0 0 0-1 1v5H6a1 1 0 0 0 0 2h1v1a1 1 0 0 0 2 0v-1h1v1a1 1 0 0 0 2 0v-1h.5a2.5 2.5 0 0 0 0-5H12V4a1 1 0 0 0-1-1H8zm0 2h1v3H8V5zm3 0h1v3h-1V5zm2.5 3H16a.5.5 0 0 1 0 1H12V8h1.5zM5 14a1 1 0 0 0-1 1v4a4 4 0 0 0 8 0v-4a1 1 0 0 0-2 0v4a2 2 0 0 1-4 0v-4a1 1 0 0 0-1-1zm10 0a1 1 0 0 0-1 1v6a1 1 0 0 0 2 0v-6a1 1 0 0 0-1-1z"/></svg>
+      </div>
+      <h1>LIBRAS <span>ao Vivo</span></h1>
+    </div>
+    <div id="conn-pill" class="connecting">
+      <div id="conn-dot"></div>
+      <span id="conn-label">Conectando</span>
     </div>
   </div>
 
-  <!-- Camera -->
   <div id="camera-wrap">
     <video id="video" autoplay muted playsinline></video>
     <canvas id="canvas"></canvas>
-
-    <div id="buffer-bar-wrap">
-      <div id="buffer-bar"></div>
+    <div id="buffer-track"><div id="buffer-fill"></div></div>
+    <div id="hands-badge">
+      <div id="hands-dot"></div>
+      <span id="hands-text">Sem mãos</span>
     </div>
-    <div id="hands-badge">✋ —</div>
   </div>
 
-  <!-- Prediction panel -->
   <div id="pred-panel">
 
-    <!-- Main prediction -->
     <div id="pred-main">
-      <div id="pred-label" class="uncertain">…</div>
-      <div id="pred-conf-wrap">
+      <div id="pred-label" class="uncertain">—</div>
+      <div id="conf-group">
         <span id="pred-conf-pct">0%</span>
-        <div id="conf-bar-bg"><div id="conf-bar"></div></div>
+        <div id="conf-track"><div id="conf-bar"></div></div>
       </div>
     </div>
 
-    <!-- Top 3 -->
+    <div class="divider"></div>
+
     <div id="top3">
-      <div class="top3-row" id="t3-0">
-        <span class="top3-label">—</span>
-        <div class="top3-bar-bg"><div class="top3-bar" style="width:0%"></div></div>
-        <span class="top3-pct">0%</span>
+      <div class="t3-row" id="t3-0">
+        <span class="t3-name">—</span>
+        <div class="t3-track"><div class="t3-bar" style="width:0%"></div></div>
+        <span class="t3-pct">—</span>
       </div>
-      <div class="top3-row" id="t3-1">
-        <span class="top3-label">—</span>
-        <div class="top3-bar-bg"><div class="top3-bar" style="width:0%"></div></div>
-        <span class="top3-pct">0%</span>
+      <div class="t3-row" id="t3-1">
+        <span class="t3-name">—</span>
+        <div class="t3-track"><div class="t3-bar" style="width:0%"></div></div>
+        <span class="t3-pct">—</span>
       </div>
-      <div class="top3-row" id="t3-2">
-        <span class="top3-label">—</span>
-        <div class="top3-bar-bg"><div class="top3-bar" style="width:0%"></div></div>
-        <span class="top3-pct">0%</span>
+      <div class="t3-row" id="t3-2">
+        <span class="t3-name">—</span>
+        <div class="t3-track"><div class="t3-bar" style="width:0%"></div></div>
+        <span class="t3-pct">—</span>
       </div>
     </div>
 
-    <!-- Botões -->
     <div id="controls">
-      <button id="btn-reset">🔄 Resetar</button>
-      <button id="btn-cam" class="primary">📷 Câmera traseira</button>
+      <button id="btn-reset">Resetar buffer</button>
+      <button id="btn-cam" class="primary">Câmera traseira</button>
     </div>
 
   </div>
@@ -359,159 +469,127 @@
 import { HandLandmarker, FilesetResolver }
   from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Config
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── Config ────────────────────────────────────────────────────────────────────
 const WS_URL = (() => {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   return `${proto}://${location.host}/ws`;
 })();
 
 const CONF_THRESH  = 0.30;
-const SEND_EVERY_N = 1;     // envia a cada N frames (1 = máximo de fluidez)
+const SEND_EVERY_N = 1;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// DOM refs
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── DOM ───────────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
-const video       = $('video');
-const canvas      = $('canvas');
-const ctx         = canvas.getContext('2d');
-const loading     = $('loading');
-const loadingMsg  = $('loading-msg');
-const statusDot   = $('status-dot');
-const statusLabel = $('status-label');
-const predLabel   = $('pred-label');
-const predConfPct = $('pred-conf-pct');
-const confBar     = $('conf-bar');
-const bufferBar   = $('buffer-bar');
-const handsBadge  = $('hands-badge');
-const toast       = $('toast');
+const video      = $('video');
+const canvas     = $('canvas');
+const ctx        = canvas.getContext('2d');
+const loading    = $('loading');
+const loadingMsg = $('loading-msg');
+const predLabel  = $('pred-label');
+const confPct    = $('pred-conf-pct');
+const confBar    = $('conf-bar');
+const bufFill    = $('buffer-fill');
+const connPill   = $('conn-pill');
+const connLabel  = $('conn-label');
+const handsBadge = $('hands-badge');
+const handsText  = $('hands-text');
+const toast      = $('toast');
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Toast
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── Toast ─────────────────────────────────────────────────────────────────────
 let toastTimer;
-function showToast(msg, ms = 2500) {
+function showToast(msg, ms = 2200) {
   toast.textContent = msg;
   toast.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove('show'), ms);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// WebSocket
-// ═══════════════════════════════════════════════════════════════════════════
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+let ws = null, wsReady = false;
 
-let ws = null;
-let wsReady = false;
+function setConn(state) {
+  connPill.className = state;
+  const labels = { connected: 'Online', connecting: 'Conectando', disconnected: 'Offline' };
+  connLabel.textContent = labels[state] || state;
+}
 
 function connectWS() {
-  setStatus('connecting');
+  setConn('connecting');
   ws = new WebSocket(WS_URL);
 
-  ws.onopen = () => {
-    setStatus('connected');
-    showToast('Conectado ao servidor!');
+  ws.onopen = () => { wsReady = true; setConn('connected'); };
+
+  ws.onmessage = ({ data }) => {
+    const msg = JSON.parse(data);
+    if (msg.reset || msg.error) return;
+
+    // Buffer progress
+    const pct = msg.buffer_need > 0 ? (msg.buffer_fill / msg.buffer_need) * 100 : 0;
+    bufFill.style.width = pct + '%';
+
+    const pred = msg.pred;
+    const conf = msg.conf ?? 0;
+    const confPctVal = Math.round(conf * 100);
+
+    if (pred && pred !== '?') {
+      predLabel.textContent = pred;
+      predLabel.className   = conf >= CONF_THRESH ? '' : 'low';
+    } else {
+      predLabel.textContent = '—';
+      predLabel.className   = 'uncertain';
+    }
+
+    confPct.textContent  = confPctVal + '%';
+    confBar.style.width  = confPctVal + '%';
+    confBar.style.background =
+      conf >= 0.65 ? 'var(--green)' :
+      conf >= CONF_THRESH ? 'var(--yellow)' : 'var(--red)';
+
+    // Top-3
+    const top3 = msg.top3 ? Object.entries(msg.top3) : [];
+    for (let i = 0; i < 3; i++) {
+      const row  = $('t3-' + i);
+      const name = row.querySelector('.t3-name');
+      const bar  = row.querySelector('.t3-bar');
+      const pctEl= row.querySelector('.t3-pct');
+      if (top3[i]) {
+        const [label, val] = top3[i];
+        name.textContent  = label;
+        bar.style.width   = Math.round(val * 100) + '%';
+        pctEl.textContent = Math.round(val * 100) + '%';
+      } else {
+        name.textContent  = '—';
+        bar.style.width   = '0%';
+        pctEl.textContent = '—';
+      }
+    }
   };
 
   ws.onclose = () => {
     wsReady = false;
-    setStatus('disconnected');
-    setTimeout(connectWS, 3000);   // reconecta automaticamente
+    setConn('disconnected');
+    setTimeout(connectWS, 2500);
   };
 
-  ws.onerror = () => {
-    setStatus('disconnected');
-  };
-
-  ws.onmessage = e => {
-    const msg = JSON.parse(e.data);
-    if (msg.reset) return;
-    if (msg.error) { showToast('Erro: ' + msg.error); return; }
-    renderPrediction(msg);
-  };
+  ws.onerror = () => ws.close();
 }
 
-function setStatus(state) {
-  wsReady = state === 'connected';
-  statusDot.className = state === 'connected' ? 'connected'
-                      : state === 'connecting' ? 'connecting' : '';
-  statusLabel.textContent = state === 'connected'   ? 'Online'
-                          : state === 'connecting'  ? 'Conectando…'
-                          : 'Sem conexão';
-}
-
-function sendLandmarks(landmarks) {
-  if (!wsReady || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ landmarks }));
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Prediction UI
-// ═══════════════════════════════════════════════════════════════════════════
-
-function renderPrediction(msg) {
-  // Buffer progress
-  const fill = msg.buffer_need > 0
-    ? Math.round((msg.buffer_fill / msg.buffer_need) * 100) : 0;
-  bufferBar.style.width = fill + '%';
-
-  if (!msg.pred || msg.pred === '?') {
-    predLabel.textContent = msg.buffer_fill < msg.buffer_need ? '…' : '?';
-    predLabel.className = 'uncertain';
-    predConfPct.textContent = '0%';
-    confBar.style.width = '0%';
-    return;
-  }
-
-  // Main prediction
-  const conf = msg.conf;
-  predLabel.textContent = msg.pred;
-  predLabel.className   = conf >= CONF_THRESH ? '' : 'uncertain';
-  predConfPct.textContent = Math.round(conf * 100) + '%';
-  confBar.style.width     = Math.round(conf * 100) + '%';
-  confBar.style.background = conf >= 0.7 ? 'var(--green)'
-                           : conf >= 0.4 ? 'var(--yellow)'
-                                         : 'var(--red)';
-
-  // Top-3
-  const top3 = Object.entries(msg.top3 || {});
-  for (let i = 0; i < 3; i++) {
-    const row  = $('t3-' + i);
-    if (!row) continue;
-    const lbl  = row.querySelector('.top3-label');
-    const bar  = row.querySelector('.top3-bar');
-    const pct  = row.querySelector('.top3-pct');
-    if (top3[i]) {
-      const [name, prob] = top3[i];
-      lbl.textContent = name;
-      bar.style.width = Math.round(prob * 100) + '%';
-      pct.textContent = Math.round(prob * 100) + '%';
-    } else {
-      lbl.textContent = '—';
-      bar.style.width = '0%';
-      pct.textContent = '0%';
-    }
+function sendLandmarks(lm) {
+  if (wsReady && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ landmarks: lm }));
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MediaPipe — HandLandmarker
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── MediaPipe ─────────────────────────────────────────────────────────────────
 let handLandmarker = null;
 
-const HAND_CONNECTIONS = [
-  [0,1],[1,2],[2,3],[3,4],         // polegar
-  [0,5],[5,6],[6,7],[7,8],         // indicador
-  [0,9],[9,10],[10,11],[11,12],    // médio
-  [0,13],[13,14],[14,15],[15,16],  // anelar
-  [0,17],[17,18],[18,19],[19,20],  // mínimo
-  [5,9],[9,13],[13,17],            // palma
+const CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [0,9],[9,10],[10,11],[11,12],
+  [0,13],[13,14],[14,15],[15,16],
+  [0,17],[17,18],[18,19],[19,20],
+  [5,9],[9,13],[13,17],
 ];
 
 async function initMediaPipe() {
@@ -521,179 +599,174 @@ async function initMediaPipe() {
   );
   handLandmarker = await HandLandmarker.createFromOptions(vision, {
     baseOptions: {
-      modelAssetPath:
-        'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
       delegate: 'GPU',
     },
-    runningMode:  'VIDEO',
-    numHands:     2,
+    runningMode: 'VIDEO',
+    numHands: 2,
     minHandDetectionConfidence: 0.5,
     minHandPresenceConfidence:  0.5,
     minTrackingConfidence:      0.5,
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Feature extraction — mesma convenção do backend Python
-// RAW landmarks (sem wrist-centering no cliente — o servidor aplica feature_mode)
-// Ordem: [right_raw(63), left_raw(63)]
-// ═══════════════════════════════════════════════════════════════════════════
+// ── Feature extraction ────────────────────────────────────────────────────────
+// Deve replicar exatamente o que infer_live.py faz:
+//   - infer_live.py faz cv2.flip(frame, 1) antes do MediaPipe → x espelhado
+//   - Câmera frontal no browser: x do frame raw está espelhado em relação ao
+//     frame flippado do desktop → inverter x (1.0 - x) para corrigir
+//   - Câmera traseira: MediaPipe assume entrada espelhada mas câmera traseira
+//     não é espelhada → handedness swapped, x correto sem inversão
+// Ordem de saída: [right(63), left(63)] — igual collect_data.py e infer_live.py
 
-function extractLandmarks(results) {
-  const right = new Float32Array(63);  // zeros
+function extractLandmarks(results, isFront) {
+  const right = new Float32Array(63);
   const left  = new Float32Array(63);
 
   if (results.landmarks && results.handedness) {
     for (let i = 0; i < results.landmarks.length; i++) {
       const lms   = results.landmarks[i];
-      const label = results.handedness[i][0].categoryName; // "Left"|"Right"
+      const label = results.handedness[i][0].categoryName; // 'Left' | 'Right'
 
       const vec = new Float32Array(63);
       for (let j = 0; j < 21; j++) {
-        vec[j * 3]     = lms[j].x;
+        // Câmera frontal: invertemos x para coincidir com o frame flippado
+        // do desktop (onde o modelo foi treinado).
+        // Câmera traseira: x já está correto, mas handedness é trocado abaixo.
+        vec[j * 3]     = isFront ? 1.0 - lms[j].x : lms[j].x;
         vec[j * 3 + 1] = lms[j].y;
         vec[j * 3 + 2] = lms[j].z;
       }
 
-      // Sem centering aqui — o servidor (Python) aplica wrist_centered
-      if (label === 'Right') right.set(vec);
-      else                    left.set(vec);
+      // Câmera traseira: MediaPipe assume entrada espelhada → labels trocados
+      const isRight = isFront ? (label === 'Right') : (label === 'Left');
+      if (isRight) right.set(vec);
+      else          left.set(vec);
     }
   }
 
-  const combined = new Float32Array(126);
-  combined.set(right, 0);
-  combined.set(left, 63);
-  return Array.from(combined);
+  const out = new Float32Array(126);
+  out.set(right, 0);
+  out.set(left, 63);
+  return Array.from(out);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Canvas overlay — desenha esqueleto das mãos
-// ═══════════════════════════════════════════════════════════════════════════
+// ── Skeleton overlay ──────────────────────────────────────────────────────────
+// Canvas NÃO tem CSS flip. Espelhamos x manualmente para câmera frontal
+// (onde o video tem scaleX(-1)), de modo que o esqueleto fique sobre a mão.
 
-function drawHands(results) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function drawHands(results, isFront) {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
   if (!results.landmarks) return;
 
-  const W = canvas.width, H = canvas.height;
+  const cx = (lm) => (isFront ? (1 - lm.x) : lm.x) * W;
+  const cy = (lm) => lm.y * H;
 
   results.landmarks.forEach((lms, hi) => {
-    const color = hi === 0 ? '#3b82f6' : '#a855f7';
+    const baseColor = hi === 0 ? '#5b7fff' : '#a78bfa';
 
     // Conexões
-    ctx.strokeStyle = color + '99';
-    ctx.lineWidth   = 2;
-    for (const [a, b] of HAND_CONNECTIONS) {
+    ctx.strokeStyle = baseColor + 'bb';
+    ctx.lineWidth   = 1.8;
+    ctx.lineCap     = 'round';
+    for (const [a, b] of CONNECTIONS) {
       ctx.beginPath();
-      // canvas espelhado via CSS — coordenadas naturais
-      ctx.moveTo(lms[a].x * W, lms[a].y * H);
-      ctx.lineTo(lms[b].x * W, lms[b].y * H);
+      ctx.moveTo(cx(lms[a]), cy(lms[a]));
+      ctx.lineTo(cx(lms[b]), cy(lms[b]));
       ctx.stroke();
     }
 
     // Pontos
-    lms.forEach((lm, li) => {
-      const isWrist     = li === 0;
-      const isTip       = [4,8,12,16,20].includes(li);
-      ctx.fillStyle     = isWrist ? '#fff' : isTip ? color : color + 'cc';
+    lms.forEach((lm, idx) => {
+      const isWrist = idx === 0;
+      const isTip   = [4,8,12,16,20].includes(idx);
+      const r = isWrist ? 5.5 : isTip ? 4 : 2.8;
       ctx.beginPath();
-      ctx.arc(lm.x * W, lm.y * H, isWrist ? 5 : isTip ? 4 : 2.5, 0, Math.PI * 2);
+      ctx.arc(cx(lm), cy(lm), r, 0, Math.PI * 2);
+      ctx.fillStyle = isWrist ? '#fff' : isTip ? baseColor : baseColor + '99';
       ctx.fill();
     });
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Camera
-// ═══════════════════════════════════════════════════════════════════════════
-
-let useFrontCamera = true;
-let frameCount     = 0;
-let animFrame      = null;
+// ── Camera ────────────────────────────────────────────────────────────────────
+let useFront = true;
+let frameCount = 0, animId = null;
 
 async function startCamera() {
-  if (animFrame) cancelAnimationFrame(animFrame);
+  if (animId) cancelAnimationFrame(animId);
   if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
 
-  const constraints = {
-    video: {
-      facingMode: useFrontCamera ? 'user' : 'environment',
-      width:  { ideal: 1280 },
-      height: { ideal: 720 },
-    },
-    audio: false,
-  };
+  // Aplica CSS flip só para câmera frontal (efeito espelho natural)
+  video.style.transform = useFront ? 'scaleX(-1)' : 'none';
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: useFront ? 'user' : 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
     video.srcObject = stream;
     await new Promise(r => video.onloadedmetadata = r);
     await video.play();
-    renderLoop();
+    loop();
   } catch (err) {
     showToast('Erro na câmera: ' + err.message);
-    console.error(err);
   }
 }
 
 function resizeCanvas() {
-  const rect = canvas.getBoundingClientRect();
-  canvas.width  = rect.width;
-  canvas.height = rect.height;
+  const r = canvas.getBoundingClientRect();
+  if (canvas.width !== r.width || canvas.height !== r.height) {
+    canvas.width  = r.width;
+    canvas.height = r.height;
+  }
 }
 
-function renderLoop() {
-  if (video.paused || video.ended) { animFrame = requestAnimationFrame(renderLoop); return; }
-
+function loop() {
+  if (video.paused || video.ended) { animId = requestAnimationFrame(loop); return; }
   resizeCanvas();
 
-  const now     = performance.now();
-  const results = handLandmarker.detectForVideo(video, now);
-  const det     = results.landmarks && results.landmarks.length > 0;
+  const results = handLandmarker.detectForVideo(video, performance.now());
+  const det     = results.landmarks?.length > 0;
 
-  // Badge de detecção
-  handsBadge.textContent = det
-    ? `✋ ${results.landmarks.length} mão(s)`
-    : '✋ —';
-  handsBadge.className = det ? 'detected' : '';
-
-  // Overlay
-  drawHands(results);
-
-  // Envia ao servidor
-  frameCount++;
-  if (frameCount % SEND_EVERY_N === 0) {
-    const landmarks = extractLandmarks(results);
-    sendLandmarks(landmarks);
+  // Badge
+  if (det) {
+    handsBadge.classList.add('detected');
+    handsText.textContent = results.landmarks.length === 1 ? '1 mão' : '2 mãos';
+  } else {
+    handsBadge.classList.remove('detected');
+    handsText.textContent = 'Sem mãos';
   }
 
-  animFrame = requestAnimationFrame(renderLoop);
+  drawHands(results, useFront);
+
+  if (frameCount++ % SEND_EVERY_N === 0) {
+    sendLandmarks(extractLandmarks(results, useFront));
+  }
+
+  animId = requestAnimationFrame(loop);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Botões
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── Botões ────────────────────────────────────────────────────────────────────
 $('btn-reset').addEventListener('click', () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
+  if (wsReady) {
     ws.send(JSON.stringify({ reset: true }));
-    predLabel.textContent = '…';
+    predLabel.textContent = '—';
     predLabel.className   = 'uncertain';
+    bufFill.style.width   = '0%';
     showToast('Buffer resetado');
   }
 });
 
 $('btn-cam').addEventListener('click', () => {
-  useFrontCamera = !useFrontCamera;
-  $('btn-cam').textContent = useFrontCamera ? '📷 Câmera traseira' : '📷 Câmera frontal';
+  useFront = !useFront;
+  $('btn-cam').textContent = useFront ? 'Câmera traseira' : 'Câmera frontal';
   startCamera();
-  showToast(useFrontCamera ? 'Câmera frontal' : 'Câmera traseira');
+  showToast(useFront ? 'Câmera frontal ativa' : 'Câmera traseira ativa');
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Init
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── Init ──────────────────────────────────────────────────────────────────────
 (async () => {
   try {
     await initMediaPipe();
