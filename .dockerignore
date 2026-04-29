@@ -1,0 +1,55 @@
+# ── Datasets (grande demais) ──────────────────────────────────────────────────
+libras_data/
+libras_data_minds/
+MINDS/
+newMINDS/
+mindsTESTS/
+30frames/
+dataset/
+
+# ── Resultados e logs ─────────────────────────────────────────────────────────
+results/
+results_*/
+report_figs_*/
+logs/
+*.log
+*.csv
+
+# ── Código antigo ─────────────────────────────────────────────────────────────
+old/
+
+# ── Modelos treinados (grandes — montados via volume) ─────────────────────────
+# Nota: norm_stats.json e actions.npy SÃO copiados (pequenos, versionados)
+models/*/model.keras
+models/*/model.h5
+*.keras
+*.h5
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+web/.venv/
+
+# ── IDEs e OS ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Git ───────────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Deploy (não precisa dentro da imagem) ─────────────────────────────────────
+web/deploy.sh
+web/nginx.conf

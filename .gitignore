@@ -1,1 +1,50 @@
-.MINDS
+# ── Dados e modelos grandes ───────────────────────────────────────────────────
+*.npy
+*.keras
+*.h5
+*.csv
+
+# Exceções: arquivos pequenos do modelo que devem entrar no git
+# (o model.keras fica de fora — é enviado via volume no Coolify)
+!models/*/actions.npy
+!models/*/norm_stats.json
+
+# ── Resultados e logs ─────────────────────────────────────────────────────────
+results/
+results_*/
+report_figs_*/
+logs/
+*.log
+
+# ── Datasets externos ─────────────────────────────────────────────────────────
+MINDS/
+.MINDS/
+libras_data_minds/
+newMINDS/
+mindsTESTS/
+30frames/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
