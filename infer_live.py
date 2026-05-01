@@ -155,7 +155,16 @@ def main():
     cap = cv2.VideoCapture(args.cam)
     if not cap.isOpened():
         print(f"[ERRO] Câmera {args.cam} não disponível.")
+        print(f"       Dica: se a câmera estiver em uso por outro app (ex: browser),")
+        print(f"       feche-o primeiro. Ou tente outra câmera com --cam 1")
         sys.exit(1)
+
+    # Aquece a câmera — descarta os primeiros frames que podem falhar
+    for _ in range(5):
+        cap.read()
+
+    frames_perdidos = 0
+    MAX_FRAMES_PERDIDOS = 10   # tolerância antes de encerrar
 
     with mp_hands.Hands(
         static_image_mode=False,
@@ -167,8 +176,15 @@ def main():
         while True:
             ok, frame = cap.read()
             if not ok:
-                print("[WARN] Frame perdido.")
-                break
+                frames_perdidos += 1
+                if frames_perdidos >= MAX_FRAMES_PERDIDOS:
+                    print(f"[ERRO] {MAX_FRAMES_PERDIDOS} frames consecutivos perdidos. Encerrando.")
+                    print(f"       Verifique se outra aplicação está usando a câmera.")
+                    break
+                print(f"[WARN] Frame perdido ({frames_perdidos}/{MAX_FRAMES_PERDIDOS}).")
+                cv2.waitKey(30)
+                continue
+            frames_perdidos = 0   # reset ao receber frame válido
 
             frame   = cv2.flip(frame, 1)
             rgb     = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

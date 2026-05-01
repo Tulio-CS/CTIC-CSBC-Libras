@@ -23,12 +23,17 @@ from data_utils import load_norm_stats, apply_feature_mode
 
 class InferenceSession:
     def __init__(self, T: int, n_classes: int,
-                 ema_alpha: float = 0.6, majority_k: int = 8):
-        self.buffer     = deque(maxlen=T)
-        self.vote       = deque(maxlen=majority_k)
-        self.ema        = np.zeros(n_classes, dtype=np.float32)
-        self._ema_init  = False
-        self.ema_alpha  = ema_alpha
+                 ema_alpha: float = 0.6, majority_k: int = 8,
+                 infer_every: int = 2):
+        self.buffer      = deque(maxlen=T)
+        self.vote        = deque(maxlen=majority_k)
+        self.ema         = np.zeros(n_classes, dtype=np.float32)
+        self._ema_init   = False
+        self.ema_alpha   = ema_alpha
+        self.infer_every = infer_every   # roda inferência a cada N frames
+        self._frame_cnt  = 0
+        # Cache da última predição para frames que não rodam inferência
+        self._last_result: dict | None = None
 
     def update_ema(self, prob: np.ndarray) -> np.ndarray:
         if not self._ema_init:
@@ -41,8 +46,10 @@ class InferenceSession:
     def reset(self):
         self.buffer.clear()
         self.vote.clear()
-        self.ema[:]    = 0
-        self._ema_init = False
+        self.ema[:]      = 0
+        self._ema_init   = False
+        self._frame_cnt  = 0
+        self._last_result = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -72,16 +79,15 @@ class Predictor:
         self.actions = np.load(actions_path).astype(str)
         mu, sd, self.T, self.F, self.feature_mode = load_norm_stats(norm_path)
 
-        # (F,) — para operações vetorizadas rápidas
         self.mu = mu.reshape(-1).astype(np.float32)
         self.sd = sd.reshape(-1).astype(np.float32)
 
         self.n_classes = len(self.actions)
         print(f"[Predictor] Pronto — {self.n_classes} classes | T={self.T} | F={self.F}")
 
-        # Warm-up para evitar latência na primeira predição
+        # Warm-up: chamada direta (não model.predict) para já compilar o graph
         dummy = np.zeros((1, self.T, self.F), dtype=np.float32)
-        self.model.predict(dummy, verbose=0)
+        _ = self.model(dummy, training=False)
         print("[Predictor] Warm-up concluído.")
 
     # ── API pública ──────────────────────────────────────────────────────────
@@ -92,28 +98,27 @@ class Predictor:
             n_classes=self.n_classes,
             ema_alpha=cfg.EMA_ALPHA,
             majority_k=cfg.MAJORITY_K,
+            infer_every=cfg.INFER_EVERY_N,
         )
 
     def step(self, session: InferenceSession, raw_landmarks: list) -> dict:
         """
-        Recebe um vetor raw de 126 landmarks (sem centering aplicado pelo cliente),
-        adiciona ao buffer da sessão e retorna a predição corrente.
-
-        raw_landmarks: lista de 126 floats [right_raw(63), left_raw(63)]
+        Recebe um vetor raw de 126 landmarks, adiciona ao buffer e retorna
+        a predição. Inferência é executada a cada session.infer_every frames
+        para reduzir latência em dispositivos móveis.
         """
         feat = np.array(raw_landmarks, dtype=np.float32)
 
-        # Garante comprimento correto (padding ou truncamento)
         if len(feat) < self.F:
             feat = np.pad(feat, (0, self.F - len(feat)))
         feat = feat[: self.F]
 
-        # Aplica a mesma feature_mode do treinamento (ex: wrist_centered)
-        feat_2d = feat.reshape(1, self.F)            # (1, F) para apply_feature_mode
+        feat_2d = feat.reshape(1, self.F)
         feat_2d = apply_feature_mode(feat_2d, self.feature_mode)
         feat    = feat_2d.reshape(-1)
 
         session.buffer.append(feat)
+        session._frame_cnt += 1
 
         result: dict = {
             "pred":        None,
@@ -126,23 +131,32 @@ class Predictor:
         if len(session.buffer) < self.T:
             return result
 
-        # Janela completa → inferência
+        # Só roda inferência a cada infer_every frames
+        if session._frame_cnt % session.infer_every != 0:
+            # Retorna último resultado cacheado (com buffer atualizado)
+            if session._last_result:
+                cached = dict(session._last_result)
+                cached["buffer_fill"] = len(session.buffer)
+                return cached
+            return result
+
+        # ── Inferência ───────────────────────────────────────────────────────
         X  = np.stack(session.buffer, axis=0)        # (T, F)
         Xn = (X - self.mu) / (self.sd + 1e-8)       # z-score
-        Xn = Xn[np.newaxis, ...]                     # (1, T, F)
+        Xn = Xn[np.newaxis, ...].astype(np.float32)  # (1, T, F)
 
-        prob = self.model.predict(Xn, verbose=0)[0]  # (n_classes,)
-        prob = session.update_ema(prob)               # EMA suavização
+        # Chamada direta ao modelo — 10-50× mais rápida que model.predict()
+        # para batch size 1, pois evita o overhead de setup do tf.function.
+        prob = self.model(Xn, training=False).numpy()[0]  # (n_classes,)
+        prob = session.update_ema(prob)
 
         cls  = int(np.argmax(prob))
         conf = float(prob[cls])
 
-        # Majority vote
         session.vote.append(cls)
         vote_cls = max(set(session.vote), key=session.vote.count)
         enough   = session.vote.count(vote_cls) >= max(2, cfg.MAJORITY_K // 2)
 
-        # Top-3 predições para exibir no frontend
         top3_idx = np.argsort(prob)[::-1][:3]
         top3     = {self.actions[i]: round(float(prob[i]), 4) for i in top3_idx}
 
@@ -150,4 +164,5 @@ class Predictor:
         result["conf"] = round(conf, 4)
         result["top3"] = top3
 
+        session._last_result = dict(result)
         return result

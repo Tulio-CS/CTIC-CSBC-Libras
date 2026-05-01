@@ -14,13 +14,11 @@ Protocolo WebSocket:
 Inicialização:
   cd D:/LSB_Object_Detection
   uvicorn web.app:app --host 0.0.0.0 --port 8000
-
-  # ou na VPS (após deploy.sh):
-  uvicorn web.app:app --host 0.0.0.0 --port 8000 --workers 1
 """
 
-import os, json
+import os, json, asyncio
 from contextlib import asynccontextmanager
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
@@ -29,10 +27,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from predictor import Predictor
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Inicialização do modelo (uma vez só, ao subir o servidor)
+# Globals
 # ─────────────────────────────────────────────────────────────────────────────
 
 predictor: Predictor | None = None
+
+# Thread pool de 1 worker: garante que o modelo TF não é chamado em paralelo
+# e libera o event loop do asyncio durante a inferência (que é bloqueante).
+_executor = ThreadPoolExecutor(max_workers=1)
 
 
 @asynccontextmanager
@@ -41,7 +43,6 @@ async def lifespan(app: FastAPI):
     model_name = os.getenv("LIBRAS_MODEL", "bilstm_attn")
     predictor  = Predictor(model_name=model_name)
     yield
-    # cleanup (se necessário)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ app.add_middleware(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Endpoints REST
+# REST
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -67,17 +68,17 @@ async def health():
     if predictor is None:
         return {"status": "loading"}
     return {
-        "status":    "ok",
-        "classes":   predictor.n_classes,
-        "T":         predictor.T,
-        "F":         predictor.F,
-        "model":     os.getenv("LIBRAS_MODEL", "bilstm_attn"),
-        "actions":   predictor.actions.tolist(),
+        "status":  "ok",
+        "classes": predictor.n_classes,
+        "T":       predictor.T,
+        "F":       predictor.F,
+        "model":   os.getenv("LIBRAS_MODEL", "bilstm_attn"),
+        "actions": predictor.actions.tolist(),
     }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# WebSocket — uma sessão por conexão
+# WebSocket
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.websocket("/ws")
@@ -90,13 +91,13 @@ async def websocket_endpoint(ws: WebSocket):
         return
 
     session = predictor.new_session()
+    loop    = asyncio.get_event_loop()
 
     try:
         while True:
-            raw  = await ws.receive_text()
-            msg  = json.loads(raw)
+            raw = await ws.receive_text()
+            msg = json.loads(raw)
 
-            # Reset pedido pelo cliente (ex: botão "Resetar")
             if msg.get("reset"):
                 session.reset()
                 await ws.send_json({"reset": True})
@@ -106,7 +107,12 @@ async def websocket_endpoint(ws: WebSocket):
             if not landmarks:
                 continue
 
-            result = predictor.step(session, landmarks)
+            # Roda predictor.step() em thread pool para não bloquear o asyncio.
+            # Isso é crítico no mobile: sem isso, o servidor trava enquanto o
+            # modelo TF processa, e frames se acumulam na fila.
+            result = await loop.run_in_executor(
+                _executor, predictor.step, session, landmarks
+            )
             await ws.send_json(result)
 
     except WebSocketDisconnect:
@@ -119,7 +125,7 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Serve frontend estático (index.html)
+# Frontend estático
 # ─────────────────────────────────────────────────────────────────────────────
 
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
