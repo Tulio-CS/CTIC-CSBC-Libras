@@ -48,6 +48,12 @@ def parse_args():
                    help="Usa coordenadas absolutas em vez de wrist-centered")
     p.add_argument("--no_weights", action="store_true",
                    help="Não usa class weights")
+    p.add_argument("--T", type=int, default=None,
+                   help="Comprimento fixo da sequência (ablation); None = auto-detectado")
+    p.add_argument("--run_name", default=None,
+                   help="Nome do run para ablação (sobrescreve --model como nome da pasta)")
+    p.add_argument("--results_dir", default=None,
+                   help="Diretório de resultados (sobrescreve padrão)")
     return p.parse_args()
 
 
@@ -85,12 +91,15 @@ def main():
     use_aug      = not args.no_aug
     use_weights  = cfg.USE_CLASS_WEIGHTS and not args.no_weights
 
+    # run_name permite ablação com subpastas separadas por configuração
+    run_name = args.run_name if args.run_name else args.model
+
     # Seeds
     np.random.seed(cfg.SEED); tf.random.set_seed(cfg.SEED); random.seed(cfg.SEED)
 
-    # Diretórios de saída — separados por nome do modelo
-    model_dir   = os.path.join(cfg.MODELS_DIR, args.model)
-    results_dir = os.path.join(cfg.RESULTS_DIR, args.model)
+    # Diretórios de saída
+    model_dir   = os.path.join(cfg.MODELS_DIR, run_name)
+    results_dir = args.results_dir if args.results_dir else os.path.join(cfg.RESULTS_DIR, run_name)
     os.makedirs(model_dir,   exist_ok=True)
     os.makedirs(results_dir, exist_ok=True)
 
@@ -98,9 +107,10 @@ def main():
     norm_path    = os.path.join(model_dir, "norm_stats.json")
     actions_path = os.path.join(model_dir, "actions.npy")
 
-    print(f"[INFO] Modelo : {args.model}")
-    print(f"[INFO] Dados  : {args.data}")
-    print(f"[INFO] Saída  : {model_dir}")
+    print(f"[INFO] Modelo   : {args.model}")
+    print(f"[INFO] Run name : {run_name}")
+    print(f"[INFO] Dados    : {args.data}")
+    print(f"[INFO] Saída    : {model_dir}")
 
     # ── Carregamento ──────────────────────────────────────────────────────────
     X_raw, y, actions, meta = load_sequences(args.data)
@@ -120,7 +130,7 @@ def main():
     print(f"[INFO] Treino: {len(X_train)} | Teste: {len(X_test)}")
 
     # ── T e estatísticas de normalização (calculadas SÓ no treino) ────────────
-    T_fixed = max(int(np.median([xi.shape[0] for xi in X_raw])), 16)
+    T_fixed = args.T if args.T else max(int(np.median([xi.shape[0] for xi in X_raw])), 16)
     mu, sd, F = compute_norm_stats(X_train, T_fixed, feature_mode)
     save_norm_stats(mu, sd, T_fixed, F, feature_mode, norm_path)
     np.save(actions_path, actions)
@@ -178,8 +188,9 @@ def main():
     print(f"\n[OK] Modelo salvo em     : {model_path}")
     print(f"[OK] norm_stats salvo em : {norm_path}")
     print(f"[OK] Resultados em       : {results_dir}")
-    print(f"\nPara inferência ao vivo, rode:")
-    print(f"  python infer_live.py --model {args.model}")
+    if run_name == args.model:
+        print(f"\nPara inferência ao vivo, rode:")
+        print(f"  python infer_live.py --model {args.model}")
 
 
 if __name__ == "__main__":
