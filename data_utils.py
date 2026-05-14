@@ -222,10 +222,14 @@ def load_norm_stats(path):
 # Pipeline tf.data
 # ─────────────────────────────────────────────────────────────────────────────
 
-def make_dataset(X_list, y, T_fixed, mu, sd, batch_size, training, feature_mode):
+def make_dataset(X_list, y, T_fixed, mu, sd, batch_size, training, feature_mode,
+                 aug_types=None):
     """
     Constrói um tf.data.Dataset com normalização e (opcionalmente) augmentações.
-    X_list: lista de arrays (T_i, F)
+    X_list   : lista de arrays (T_i, F)
+    aug_types: set de strings com augmentações a aplicar, ou None = todas.
+               Ignorado quando training=False.
+               Valores válidos: 'jitter', 'rotation', 'scale', 'temp_dropout', 'time_mask'
     """
     X2 = np.stack([
         apply_feature_mode(pad_or_crop_to_T(xi, T_fixed), feature_mode)
@@ -239,51 +243,75 @@ def make_dataset(X_list, y, T_fixed, mu, sd, batch_size, training, feature_mode)
 
     if training:
         ds = ds.shuffle(len(X2), seed=cfg.SEED, reshuffle_each_iteration=True)
-        ds = ds.map(_augment_fn, num_parallel_calls=tf.data.AUTOTUNE)
+        aug_fn = make_augment_fn(aug_types)
+        ds = ds.map(aug_fn, num_parallel_calls=tf.data.AUTOTUNE)
 
     return ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
 
+def make_augment_fn(aug_types=None):
+    """
+    Fábrica de funções de augmentação para uso no tf.data pipeline.
+
+    aug_types=None  → aplica TODAS as augmentações (comportamento padrão).
+    aug_types=set() → aplica nenhuma (equivalente a training=False, mas via factory).
+    aug_types={'jitter', 'rotation'} → aplica apenas as listadas.
+
+    Tipos disponíveis: 'jitter', 'rotation', 'scale', 'temp_dropout', 'time_mask'
+
+    Os condicionais Python são avaliados em tempo de rastreamento pelo TF,
+    portanto branches inativos não entram no grafo computacional.
+    """
+    ALL = {"jitter", "rotation", "scale", "temp_dropout", "time_mask"}
+    active = ALL if aug_types is None else (set(aug_types) & ALL)
+
+    def _aug(x, y):
+        T  = tf.shape(x)[0]
+        F  = tf.shape(x)[1]
+        P  = F // 3
+        x3 = tf.reshape(x, (T, P, 3))
+
+        if "jitter" in active:
+            x3 += tf.random.normal(tf.shape(x3), stddev=cfg.JITTER_STD)
+
+        if "rotation" in active:
+            theta = tf.random.uniform([], -_deg2rad(cfg.ROT_DEG), _deg2rad(cfg.ROT_DEG))
+            c, s  = tf.cos(theta), tf.sin(theta)
+            rot   = tf.stack([[c, -s], [s, c]])
+            xy    = tf.reshape(x3[..., :2], (-1, 2)) @ rot
+            xy    = tf.reshape(xy, (T, P, 2))
+            x3    = tf.concat([xy, x3[..., 2:3]], axis=-1)
+
+        if "scale" in active:
+            x3 *= tf.random.uniform([], cfg.SCALE_MIN, cfg.SCALE_MAX)
+
+        if "temp_dropout" in active:
+            keep = tf.cast(tf.random.uniform((T,)) > cfg.TEMP_DROPOUT_P, tf.float32)
+            x3  *= tf.reshape(keep, (T, 1, 1))
+
+        if "time_mask" in active:
+            L = tf.cast(tf.round(cfg.TIME_MASK_RATIO * tf.cast(T, tf.float32)), tf.int32)
+            L = tf.maximum(L, 0)
+
+            def apply_time_mask(x3_):
+                start = tf.random.uniform([], 0, tf.maximum(T - L, 1), dtype=tf.int32)
+                mask  = tf.concat([
+                    tf.zeros((start, 1, 1)),
+                    tf.ones((L, 1, 1)),
+                    tf.zeros((T - start - L, 1, 1))
+                ], axis=0)
+                return x3_ * (1.0 - mask)
+
+            x3 = tf.cond(L > 0, lambda: apply_time_mask(x3), lambda: x3)
+
+        return tf.reshape(x3, (T, F)), y
+
+    return _aug
+
+
+# Mantido para compatibilidade retroativa com código legado que importa _augment_fn
 def _augment_fn(x, y):
-    """Augmentações aplicadas on-the-fly no tf.data pipeline."""
-    T = tf.shape(x)[0]
-    F = tf.shape(x)[1]
-    P = F // 3
-    x3 = tf.reshape(x, (T, P, 3))
-
-    # Ruído gaussiano
-    x3 += tf.random.normal(tf.shape(x3), stddev=cfg.JITTER_STD)
-
-    # Rotação 2-D (x, y)
-    theta = tf.random.uniform([], -_deg2rad(cfg.ROT_DEG), _deg2rad(cfg.ROT_DEG))
-    c, s  = tf.cos(theta), tf.sin(theta)
-    rot   = tf.stack([[c, -s], [s, c]])
-    xy    = tf.reshape(x3[..., :2], (-1, 2)) @ rot
-    xy    = tf.reshape(xy, (T, P, 2))
-    x3    = tf.concat([xy, x3[..., 2:3]], axis=-1)
-
-    # Escala espacial
-    x3 *= tf.random.uniform([], cfg.SCALE_MIN, cfg.SCALE_MAX)
-
-    # Temporal dropout (zera timesteps aleatórios)
-    keep = tf.cast(tf.random.uniform((T,)) > cfg.TEMP_DROPOUT_P, tf.float32)
-    x3  *= tf.reshape(keep, (T, 1, 1))
-
-    # Time-mask (zera bloco contíguo)
-    L = tf.cast(tf.round(cfg.TIME_MASK_RATIO * tf.cast(T, tf.float32)), tf.int32)
-    L = tf.maximum(L, 0)
-
-    def apply_time_mask(x3_):
-        start = tf.random.uniform([], 0, tf.maximum(T - L, 1), dtype=tf.int32)
-        mask  = tf.concat([
-            tf.zeros((start, 1, 1)),
-            tf.ones((L, 1, 1)),
-            tf.zeros((T - start - L, 1, 1))
-        ], axis=0)
-        return x3_ * (1.0 - mask)
-
-    x3 = tf.cond(L > 0, lambda: apply_time_mask(x3), lambda: x3)
-    return tf.reshape(x3, (T, F)), y
+    return make_augment_fn(None)(x, y)
 
 
 def _deg2rad(deg):
