@@ -1,0 +1,12 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+websockets>=12.0
+python-multipart>=0.0.9
+
+# ML
+tensorflow-cpu>=2.16.0   # use tensorflow-cpu para economizar VRAM na VPS
+numpy>=1.26.0
+scikit-learn>=1.4.0
+
+# Para servir arquivos estáticos
+aiofiles>=23.2.1

@@ -1,0 +1,252 @@
+[
+  {
+    "model_name": "lstm",
+    "T": 16,
+    "F": 126,
+    "feature_mode": "wrist_centered",
+    "params_total": 195383,
+    "params_trainable": 195383,
+    "params_nontrainable": 0,
+    "disk_size_bytes": 2387377,
+    "disk_size_mb": 2.387377,
+    "fp32_size_mb": 0.781532,
+    "gflops": 0.005764864,
+    "load_time_ms": 392.92670000577345,
+    "inference_latency": {
+      "mean_ms": 64.2612129994086,
+      "std_ms": 6.506032683066445,
+      "p50_ms": 62.649750005220994,
+      "p95_ms": 73.02517496864314,
+      "p99_ms": 79.54203800880333,
+      "min_ms": 59.54250000650063,
+      "max_ms": 130.43990003643557,
+      "n_runs": 200
+    },
+    "web_pipeline": {
+      "mean_ms": 62.895930499362294,
+      "std_ms": 2.1362614391181816,
+      "p50_ms": 62.32134997844696,
+      "p95_ms": 66.0360250127269,
+      "p99_ms": 71.65676203614566,
+      "n_runs": 200,
+      "breakdown": {
+        "feature_transform": {
+          "mean_ms": 0.03302400466054678,
+          "p95_ms": 0.036765015101991594
+        },
+        "normalization": {
+          "mean_ms": 0.03653999883681536,
+          "p95_ms": 0.04559496592264621
+        },
+        "model_inference": {
+          "mean_ms": 62.51808399450965,
+          "p95_ms": 64.31272499030456
+        },
+        "ema_update": {
+          "mean_ms": 0.019494008738547564,
+          "p95_ms": 0.022909999825060368
+        }
+      }
+    }
+  },
+  {
+    "model_name": "bilstm_attn",
+    "T": 16,
+    "F": 126,
+    "feature_mode": "wrist_centered",
+    "params_total": 1041655,
+    "params_trainable": 1041655,
+    "params_nontrainable": 0,
+    "disk_size_bytes": 12613614,
+    "disk_size_mb": 12.613614,
+    "fp32_size_mb": 4.16662,
+    "gflops": 0.030934784,
+    "load_time_ms": 240.59620004845783,
+    "inference_latency": {
+      "mean_ms": 304.3242599986843,
+      "std_ms": 12.11553992139263,
+      "p50_ms": 301.2913999846205,
+      "p95_ms": 320.84843499469576,
+      "p99_ms": 338.00472900853475,
+      "min_ms": 289.71440001623705,
+      "max_ms": 412.1552999713458,
+      "n_runs": 200
+    },
+    "web_pipeline": {
+      "mean_ms": 317.96513950044755,
+      "std_ms": 11.161702291267183,
+      "p50_ms": 319.7938499797601,
+      "p95_ms": 333.9668199769221,
+      "p99_ms": 351.03077099716756,
+      "n_runs": 200,
+      "breakdown": {
+        "feature_transform": {
+          "mean_ms": 0.0383259984664619,
+          "p95_ms": 0.06513999833259732
+        },
+        "normalization": {
+          "mean_ms": 0.04316600156016648,
+          "p95_ms": 0.04692500224336978
+        },
+        "model_inference": {
+          "mean_ms": 322.02603600220755,
+          "p95_ms": 334.00945502507966
+        },
+        "ema_update": {
+          "mean_ms": 0.023384002270177007,
+          "p95_ms": 0.02537998661864548
+        }
+      }
+    }
+  },
+  {
+    "model_name": "bilstm_attn_best",
+    "T": 32,
+    "F": 126,
+    "feature_mode": "wrist_centered",
+    "params_total": 2686391,
+    "params_trainable": 2686391,
+    "params_nontrainable": 0,
+    "disk_size_bytes": 32342184,
+    "disk_size_mb": 32.342184,
+    "fp32_size_mb": 10.745564,
+    "gflops": 0.171924352,
+    "load_time_ms": 484.34879997512326,
+    "inference_latency": {
+      "mean_ms": 548.4580229994026,
+      "std_ms": 13.507172591383418,
+      "p50_ms": 546.4571999909822,
+      "p95_ms": 570.0546949956333,
+      "p99_ms": 585.2134009759175,
+      "min_ms": 523.959800018929,
+      "max_ms": 669.7533000260592,
+      "n_runs": 200
+    },
+    "web_pipeline": {
+      "mean_ms": 547.7376430001459,
+      "std_ms": 13.934282583461654,
+      "p50_ms": 546.1957500083372,
+      "p95_ms": 565.1981000031811,
+      "p99_ms": 585.1162409823155,
+      "n_runs": 200,
+      "breakdown": {
+        "feature_transform": {
+          "mean_ms": 0.03076199791394174,
+          "p95_ms": 0.03411000070627778
+        },
+        "normalization": {
+          "mean_ms": 0.08283199975267053,
+          "p95_ms": 0.05922498530708253
+        },
+        "model_inference": {
+          "mean_ms": 546.0894780035596,
+          "p95_ms": 567.2161250258796
+        },
+        "ema_update": {
+          "mean_ms": 0.01663000206463039,
+          "p95_ms": 0.017950020264834166
+        }
+      }
+    }
+  },
+  {
+    "model_name": "bilstm_attn_minds",
+    "T": 16,
+    "F": 126,
+    "feature_mode": "wrist_centered",
+    "params_total": 1037140,
+    "params_trainable": 1037140,
+    "params_nontrainable": 0,
+    "disk_size_bytes": 12559434,
+    "disk_size_mb": 12.559434,
+    "fp32_size_mb": 4.14856,
+    "gflops": 0.030925824,
+    "load_time_ms": 214.207399985753,
+    "inference_latency": {
+      "mean_ms": 320.14003049815074,
+      "std_ms": 5.357103843759106,
+      "p50_ms": 319.11214999854565,
+      "p95_ms": 328.60147501633037,
+      "p99_ms": 333.69277899037104,
+      "min_ms": 311.46120000630617,
+      "max_ms": 347.74739999556914,
+      "n_runs": 200
+    },
+    "web_pipeline": {
+      "mean_ms": 324.1901810001582,
+      "std_ms": 8.038766183258796,
+      "p50_ms": 322.2647000220604,
+      "p95_ms": 338.1313450197922,
+      "p99_ms": 352.1837969933403,
+      "n_runs": 200,
+      "breakdown": {
+        "feature_transform": {
+          "mean_ms": 0.03845199826173484,
+          "p95_ms": 0.04513499443419277
+        },
+        "normalization": {
+          "mean_ms": 0.05023599835112691,
+          "p95_ms": 0.049050024244934314
+        },
+        "model_inference": {
+          "mean_ms": 327.20043599954806,
+          "p95_ms": 347.4402349849697
+        },
+        "ema_update": {
+          "mean_ms": 0.024091998348012567,
+          "p95_ms": 0.029354990692809224
+        }
+      }
+    }
+  },
+  {
+    "model_name": "bilstm_attn_combined",
+    "T": 16,
+    "F": 126,
+    "feature_mode": "wrist_centered",
+    "params_total": 1041655,
+    "params_trainable": 1041655,
+    "params_nontrainable": 0,
+    "disk_size_bytes": 12613614,
+    "disk_size_mb": 12.613614,
+    "fp32_size_mb": 4.16662,
+    "gflops": 0.030934784,
+    "load_time_ms": 217.03989995876327,
+    "inference_latency": {
+      "mean_ms": 321.7184064997127,
+      "std_ms": 7.409833221912231,
+      "p50_ms": 319.41749999532476,
+      "p95_ms": 337.1837350015994,
+      "p99_ms": 344.5652210497064,
+      "min_ms": 310.0823999848217,
+      "max_ms": 357.42499999469146,
+      "n_runs": 200
+    },
+    "web_pipeline": {
+      "mean_ms": 321.3501930006896,
+      "std_ms": 8.403603539296874,
+      "p50_ms": 317.62450002133846,
+      "p95_ms": 337.3105999984546,
+      "p99_ms": 344.37540599552443,
+      "n_runs": 200,
+      "breakdown": {
+        "feature_transform": {
+          "mean_ms": 0.03799600526690483,
+          "p95_ms": 0.05160498549230397
+        },
+        "normalization": {
+          "mean_ms": 0.039688004180788994,
+          "p95_ms": 0.055295013589784496
+        },
+        "model_inference": {
+          "mean_ms": 322.8267539967783,
+          "p95_ms": 330.7091049849987
+        },
+        "ema_update": {
+          "mean_ms": 0.022650000173598528,
+          "p95_ms": 0.032024979009293006
+        }
+      }
+    }
+  }
+]

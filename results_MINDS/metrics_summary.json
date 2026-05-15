@@ -1,0 +1,11 @@
+{
+  "accuracy_mean": 0.9928115942028988,
+  "accuracy_std": 0.00736486094196236,
+  "precision_macro_mean": 0.9929699777424158,
+  "precision_macro_std": 0.007608048344841614,
+  "recall_macro_mean": 0.9917381269315481,
+  "recall_macro_std": 0.008893476481721124,
+  "f1_macro_mean": 0.9909434466158055,
+  "f1_macro_std": 0.009651512994525024,
+  "n_bootstrap": 1000
+}

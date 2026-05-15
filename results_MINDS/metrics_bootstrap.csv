@@ -1,0 +1,5 @@
+metric,mean,std
+accuracy,0.992812,0.007365
+precision_macro,0.992970,0.007608
+recall_macro,0.991738,0.008893
+f1_macro,0.990943,0.009652

@@ -1,0 +1,14 @@
+% Tabela gerada por paper_figures.py
+\begin{table}[ht]
+\centering
+\caption{Desempenho comparativo (média $\pm$ desvio-padrão, bootstrap com 1\,000 reamostras). Melhores resultados em negrito.}
+\label{tab:resultados}
+\begin{tabular}{lcccc}
+\hline
+\textbf{Modelo} & \textbf{Acurácia} & \textbf{Precisão} & \textbf{Revocação} & \textbf{F1-Score} \\
+\hline
+LSTM & $0.9429 \pm 0.0123$ & $0.9510 \pm 0.0114$ & $0.9448 \pm 0.0125$ & $0.9402 \pm 0.0134$ \\
+BiLSTM+Atenção Combinado & \textbf{$0.9813 \pm 0.0072$} & \textbf{$0.9825 \pm 0.0074$} & \textbf{$0.9803 \pm 0.0080$} & \textbf{$0.9784 \pm 0.0088$} \\
+\hline
+\end{tabular}
+\end{table}

@@ -1,0 +1,64 @@
+# ── Dados e modelos grandes ───────────────────────────────────────────────────
+*.npy
+*.keras
+*.h5
+*.csv
+
+# Exceções: metadados de modelos (pequenos, obrigatórios para inferência)
+!models/*/actions.npy
+!models/*/norm_stats.json
+
+# Modelos de produção (< 100 MB cada)
+!models/bilstm_attn_best/model.keras
+!models/bilstm_attn_combined/model.keras
+!models/bilstm_attn_minds/model.keras
+!models/bilstm_attn/model.keras
+!models/lstm/model.keras
+
+# ── Resultados e logs ─────────────────────────────────────────────────────────
+results/
+results_ablation/
+results_MINDS/
+report_figs_*/
+logs/
+*.log
+
+# ── Figuras e tabelas de publicação (rastreadas) ──────────────────────────────
+# results_paper/ contém figuras PNG/PDF e tabelas CSV/LaTeX para o artigo
+!results_paper/
+!results_paper/*
+
+# ── Datasets externos ─────────────────────────────────────────────────────────
+MINDS/
+.MINDS/
+mindsTESTS/
+30frames/
+
+# ── Arquivos internos de ferramentas ──────────────────────────────────────────
+old/
+.claude/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

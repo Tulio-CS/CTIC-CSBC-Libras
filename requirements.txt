@@ -1,0 +1,20 @@
+# Ambiente funcional para D:\LSB_Object_Detection
+# Python: 3.11
+#
+# Instalação recomendada:
+# py -3.11 -m pip install -r requirements.txt --no-deps
+#
+# Motivo do --no-deps:
+# o mediapipe==0.10.14 tenta puxar jax/jaxlib e pode quebrar
+# o ambiente com conflito de ml-dtypes / NumPy.
+
+numpy==1.26.4
+opencv-python==4.10.0.84
+
+tensorflow==2.16.1
+keras>=3.3.3,<4
+
+protobuf==4.25.3
+ml-dtypes==0.3.2
+
+mediapipe==0.10.14
