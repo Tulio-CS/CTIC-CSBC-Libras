@@ -1,11 +1,9 @@
 # ── Datasets (grande demais) ──────────────────────────────────────────────────
-libras_data/
-libras_data_minds/
 MINDS/
-newMINDS/
 mindsTESTS/
 30frames/
 dataset/
+dataset_minds/
 
 # ── Resultados e logs ─────────────────────────────────────────────────────────
 results/
@@ -18,11 +16,30 @@ logs/
 # ── Código antigo ─────────────────────────────────────────────────────────────
 old/
 
-# ── Modelos treinados (grandes — montados via volume) ─────────────────────────
-# Nota: norm_stats.json e actions.npy SÃO copiados (pequenos, versionados)
-models/*/model.keras
-models/*/model.h5
-*.keras
+# ── Modelos treinados (excluir ablação — só produção entra na imagem) ─────────
+# Modelos de produção (bilstm_attn_best, etc.) estão NO git e são copiados.
+# Todos os modelos de ablação (pasta models/ exceto os de produção) ficam fora.
+models/T*/
+models/attn_*/
+models/aug_*/
+models/bilstm/
+models/bilstm_attn_L*/
+models/bilstm_attn_T*/
+models/bilstm_attn_absolute/
+models/bilstm_attn_aug/
+models/bilstm_attn_no_aug/
+models/bilstm_attn_wrist/
+models/data_*/
+models/dense_*/
+models/drop_*/
+models/lrsched_*/
+models/ls_*/
+models/opt_*/
+models/pool_*/
+models/recdrop_*/
+models/units_*/
+models/with_*/
+models/without_*/
 *.h5
 
 # ── Python ────────────────────────────────────────────────────────────────────
