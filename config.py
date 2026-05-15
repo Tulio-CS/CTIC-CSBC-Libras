@@ -83,8 +83,8 @@ DEFAULT_MODEL_NAME = "bilstm_attn"   # pasta dentro de MODELS_DIR
 CONF_THRESH        = 0.30            # confiança mínima para aceitar predição
 EMA_ALPHA          = 0.60            # suavização exponencial das probabilidades
 MAJORITY_K         = 8               # janelas para majority vote
-INFER_EVERY_N      = 2               # roda inferência a cada N frames (web)
-                                     # 1 = todo frame, 2 = metade das vezes
+INFER_EVERY_N      = 4               # roda inferência a cada N frames (web)
+                                     # browser envia 30fps, infere a ~7.5fps (~49% CPU)
 CAM_INDEX          = 0
 LOG_LIVE_CSV       = True
 LIVE_CSV_PATH      = "logs/live_predictions.csv"
