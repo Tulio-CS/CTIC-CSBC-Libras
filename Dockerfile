@@ -4,9 +4,10 @@
 #
 # Build local (teste):
 #   docker build -t libras-web .
-#   docker run -p 8000:8000 -v $(pwd)/models:/app/models libras-web
+#   docker run -p 8000:8000 libras-web
 #
-# No Coolify: aponta para este Dockerfile, porta 8000, volume /app/models
+# No Coolify: aponta para este Dockerfile, porta 8000.
+# Para trocar o modelo: variável de ambiente LIBRAS_MODEL=bilstm_attn_combined
 # ─────────────────────────────────────────────────────────────────────────────
 
 FROM python:3.11-slim
@@ -36,13 +37,18 @@ COPY web/app.py       ./web/app.py
 COPY web/predictor.py ./web/predictor.py
 COPY web/frontend/    ./web/frontend/
 
-# ── Modelos (montados via volume no Coolify) ──────────────────────────────────
-# /app/models/<nome>/model.keras       — NÃO está no git (grande demais)
-# /app/models/<nome>/norm_stats.json   — versionado no git
-# /app/models/<nome>/actions.npy       — versionado no git
-# O volume do Coolify sobrescreve /app/models com os arquivos reais.
+# ── Modelos de produção ───────────────────────────────────────────────────────
+# Os modelos de produção estão versionados no git (model.keras ≤ 31 MB cada).
+# Modelos de ablação (models/T*/, models/attn_*/, etc.) ficam fora via .dockerignore.
+COPY models/bilstm_attn_best/     ./models/bilstm_attn_best/
+COPY models/bilstm_attn_combined/ ./models/bilstm_attn_combined/
+COPY models/bilstm_attn_minds/    ./models/bilstm_attn_minds/
+COPY models/bilstm_attn/          ./models/bilstm_attn/
+COPY models/lstm/                 ./models/lstm/
 
-ENV LIBRAS_MODEL=bilstm_attn
+# Modelo padrão — pode ser sobrescrito via variável de ambiente no Coolify:
+#   LIBRAS_MODEL=bilstm_attn_combined
+ENV LIBRAS_MODEL=bilstm_attn_best
 
 EXPOSE 8000
 
